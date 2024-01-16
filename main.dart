@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'update_location.dart'; // Import the update_location.dart file
 
+
 void main() 
 {
   runApp(const MainApp());
@@ -41,6 +42,13 @@ class _HomePageState extends State<HomePage>
 {
   List<Map<String, double>> locations = [];
   String message = '';
+
+  final Map<String, dynamic> certainArea = 
+  {
+  'latitude': 3.2472606, 
+  'longitude': 101.739514, 
+  'radius': 100.0 // Radius in meters
+  }; // Replace with your values
 
   @override
   Widget build(BuildContext context) 
@@ -102,8 +110,21 @@ class _HomePageState extends State<HomePage>
                       setState(() 
                       {
                         locations.add(location);
-                        message = 'Your location has been located';
-                      });
+
+                        double distanceInMeters = Geolocator.distanceBetween
+                        (
+                          location['latitude']!, 
+                          location['longitude']!, 
+                          certainArea['latitude']!, 
+                          certainArea['longitude']!
+                        );
+
+                        if (distanceInMeters <= certainArea['radius']) {
+                          message = 'Welcome to the Sidiiq block C!';
+                        } else {
+                          message = 'Your location has been located';
+                        }
+                      }); // This was missing
 
                       Future.delayed(Duration(seconds: 2), () 
                       {
