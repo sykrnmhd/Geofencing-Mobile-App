@@ -3,6 +3,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'update_location.dart'; // Import the update_location.dart file
+import 'location_service.dart';
+import 'user_location.dart';
 
 
 void main() 
@@ -43,6 +45,10 @@ class _HomePageState extends State<HomePage>
   List<Map<String, double>> locations = [];
   String message = '';
 
+  bool isLoading = false;
+
+  LocationService locationService = LocationService();
+
   final Map<String, dynamic> certainArea = 
   {
   'latitude': 3.2472606, 
@@ -51,6 +57,13 @@ class _HomePageState extends State<HomePage>
   }; // Replace with your values
 
   @override
+
+  void dispose() 
+  {
+    locationService.dispose();
+    super.dispose();
+  }
+
   Widget build(BuildContext context) 
   {
     return Scaffold(
@@ -96,13 +109,38 @@ class _HomePageState extends State<HomePage>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>
                 [
+                  StreamBuilder<UserLocation>
+                  (
+                    stream: locationService.locationStream,
+                    builder: (context, snapshot) 
+                    {
+                      if (snapshot.hasData) 
+                      {
+                        return Text('Latitude: ${snapshot.data!.latitude}, Longitude: ${snapshot.data!.longitude}');
+                      } 
+                      
+                      else 
+                      {
+                        return Text('Getting location...');
+                      }
+                    },
+                  ),
+                  SizedBox(height: 20),
                   ElevatedButton
                   (
-                    child: Text('Get and Save Current Location'),
-                    onPressed: () async 
+                    child: isLoading ? CircularProgressIndicator() : Text('Save Location'),
+                    onPressed: isLoading ? null : () async 
                     {
-                      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-                      Map<String, double> location = {'latitude': position.latitude, 'longitude': position.longitude};
+                      setState(() 
+                      {
+                        isLoading = true;
+                      });
+                      Position currentLocationData = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+                      Map<String, double> location = 
+                      {
+                        'latitude': currentLocationData.latitude,
+                        'longitude': currentLocationData.longitude,
+                      };
                       SharedPreferences prefs = await SharedPreferences.getInstance();
                       List<String> locationsList = prefs.getStringList('locations') ?? [];
                       locationsList.add(jsonEncode(location));
@@ -110,29 +148,17 @@ class _HomePageState extends State<HomePage>
                       setState(() 
                       {
                         locations.add(location);
-
-                        double distanceInMeters = Geolocator.distanceBetween
-                        (
-                          location['latitude']!, 
-                          location['longitude']!, 
-                          certainArea['latitude']!, 
-                          certainArea['longitude']!
-                        );
-
-                        if (distanceInMeters <= certainArea['radius']) {
-                          message = 'Welcome to the Sidiiq block C!';
-                        } else {
-                          message = 'Your location has been located';
-                        }
-                      }); // This was missing
-
-                      Future.delayed(Duration(seconds: 2), () 
-                      {
-                        setState(() 
-                        {
-                          message = '';
-                        });
+                        isLoading = false;
                       });
+
+                      ScaffoldMessenger.of(context).showSnackBar
+                      (
+                        SnackBar
+                        (
+                          content: Text('Your location has been saved'),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
                     },
                   ),
                   Text(message),
